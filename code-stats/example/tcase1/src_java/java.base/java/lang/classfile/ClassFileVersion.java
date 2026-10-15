@@ -1,0 +1,59 @@
+/*
+ * Copyright (c) 2022, Oracle and/or its affiliates. All rights reserved.
+ * ORACLE PROPRIETARY/CONFIDENTIAL. Use is subject to license terms.
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ */
+package java.lang.classfile;
+
+import jdk.internal.classfile.impl.ClassFileVersionImpl;
+import jdk.internal.javac.PreviewFeature;
+
+/**
+ * Models the classfile version information for a class.  Delivered as a {@link
+ * java.lang.classfile.ClassElement} when traversing the elements of a {@link
+ * ClassModel}.
+ *
+ * @since 22
+ */
+@PreviewFeature(feature = PreviewFeature.Feature.CLASSFILE_API)
+public sealed interface ClassFileVersion
+        extends ClassElement
+        permits ClassFileVersionImpl {
+    /**
+     * {@return the major classfile version}
+     */
+    int majorVersion();
+
+    /**
+     * {@return the minor classfile version}
+     */
+    int minorVersion();
+
+    /**
+     * {@return a {@link ClassFileVersion} element}
+     * @param majorVersion the major classfile version
+     * @param minorVersion the minor classfile version
+     */
+    static ClassFileVersion of(int majorVersion, int minorVersion) {
+        return new ClassFileVersionImpl(majorVersion, minorVersion);
+    }
+}
