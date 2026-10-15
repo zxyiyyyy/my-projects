@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>小学生四则运算练习</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <h1>小学生四则运算练习</h1>
+      <p class="subtitle">三个数字、两个符号 · 先乘除后加减 · 每一步都是正整数</p>
+    </header>
+
+    <section id="setup-view" class="card">
+      <h2>开始练习</h2>
+      <fieldset class="ops-field">
+        <legend>选择运算（可多选）</legend>
+        <label><input type="checkbox" name="op" value="+" checked /> 加法 +</label>
+        <label><input type="checkbox" name="op" value="-" checked /> 减法 −</label>
+        <label><input type="checkbox" name="op" value="*" checked /> 乘法 ×</label>
+        <label><input type="checkbox" name="op" value="/" /> 除法 ÷</label>
+      </fieldset>
+      <div class="count-row">
+        <label for="question-count">题目数量</label>
+        <input id="question-count" type="number" min="1" max="100" value="10" />
+        <span class="hint">1–100 题</span>
+      </div>
+      <div class="count-presets" role="group" aria-label="快捷数量">
+        <button type="button" class="chip" data-count="5">5 题</button>
+        <button type="button" class="chip" data-count="10">10 题</button>
+        <button type="button" class="chip" data-count="20">20 题</button>
+        <button type="button" class="chip" data-count="50">50 题</button>
+        <button type="button" class="chip" data-count="100">100 题</button>
+      </div>
+      <p id="setup-error" class="error" hidden></p>
+      <button id="start-btn" type="button" class="btn primary">开始出题</button>
+    </section>
+
+    <section id="quiz-view" class="card" hidden>
+      <div class="progress">
+        <span id="progress-text">第 1 / 10 题</span>
+        <div class="progress-bar" aria-hidden="true">
+          <div id="progress-fill"></div>
+        </div>
+      </div>
+      <p class="problem" id="problem-text">1 + 2 × 3 = ?</p>
+      <div class="answer-row">
+        <label for="answer-input">你的答案</label>
+        <input id="answer-input" type="number" inputmode="numeric" autocomplete="off" />
+      </div>
+      <p id="feedback" class="feedback" hidden></p>
+      <button id="submit-btn" type="button" class="btn primary">提交</button>
+    </section>
+
+    <section id="result-view" class="card" hidden>
+      <h2>练习结果</h2>
+      <div class="stats">
+        <div class="stat">
+          <span class="stat-value" id="stat-correct">0</span>
+          <span class="stat-label">答对题数</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value" id="stat-total">0</span>
+          <span class="stat-label">总题数</span>
+        </div>
+        <div class="stat highlight">
+          <span class="stat-value" id="stat-rate">0%</span>
+          <span class="stat-label">正确率</span>
+        </div>
+      </div>
+      <ul id="review-list" class="review-list"></ul>
+      <button id="retry-btn" type="button" class="btn primary">再练一次</button>
+    </section>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
