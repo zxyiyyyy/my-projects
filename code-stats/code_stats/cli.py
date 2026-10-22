@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import sys
+from pathlib import Path
 from typing import Sequence
 
 from . import __version__
@@ -42,7 +44,21 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--json",
         action="store_true",
-        help="Output results as JSON",
+        help="Output results as JSON to stdout",
+    )
+    parser.add_argument(
+        "--csv",
+        nargs="?",
+        const="code_stats.csv",
+        metavar="FILE",
+        help="Write results to a CSV file (default: code_stats.csv)",
+    )
+    parser.add_argument(
+        "--excel",
+        nargs="?",
+        const="code_stats.xlsx",
+        metavar="FILE",
+        help="Write results to an Excel .xlsx file (default: code_stats.xlsx)",
     )
     parser.add_argument(
         "--by-file",
@@ -265,6 +281,70 @@ def render_json(project, *, by_file: bool = False) -> str:
     return json.dumps(payload, indent=2, ensure_ascii=False)
 
 
+def write_csv(project, filepath: str, *, by_file: bool = False) -> None:
+    """Write language statistics to a CSV file."""
+    path = Path(filepath)
+    with open(path, "w", newline="", encoding="utf-8-sig") as f:
+        writer = csv.writer(f)
+        writer.writerow(["Language", "Files", "Blank", "Comment", "Code", "Total"])
+        for name, stats in sorted(project.by_language.items(), key=lambda item: item[0].lower()):
+            writer.writerow([name, stats.files, stats.blank, stats.comment, stats.code, stats.total])
+        t = project.total
+        writer.writerow(["SUM", t.files, t.blank, t.comment, t.code, t.total])
+        if by_file and project.by_file:
+            writer.writerow([])
+            writer.writerow(["File", "Language", "Blank", "Comment", "Code", "Total"])
+            for stats in sorted(project.by_file, key=lambda s: s.path.lower()):
+                writer.writerow([stats.path, stats.language, stats.blank, stats.comment, stats.code, stats.total])
+    print(f"CSV written to {path.resolve()}")
+
+
+def write_excel(project, filepath: str, *, by_file: bool = False) -> None:
+    """Write language statistics to an Excel .xlsx file (requires openpyxl)."""
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font
+    except ImportError:
+        print("Error: openpyxl is required for Excel output. Install it with: pip install openpyxl", file=sys.stderr)
+        sys.exit(1)
+
+    path = Path(filepath)
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Code Stats"
+
+    bold = Font(bold=True)
+    headers = ["Language", "Files", "Blank", "Comment", "Code", "Total"]
+    ws.append(headers)
+    for cell in ws[1]:
+        cell.font = bold
+
+    for name, stats in sorted(project.by_language.items(), key=lambda item: item[0].lower()):
+        ws.append([name, stats.files, stats.blank, stats.comment, stats.code, stats.total])
+
+    t = project.total
+    row_num = ws.max_row + 1
+    ws.append(["SUM", t.files, t.blank, t.comment, t.code, t.total])
+    for cell in ws[row_num]:
+        cell.font = bold
+
+    if by_file and project.by_file:
+        ws.append([])
+        file_header_row = ws.max_row + 1
+        ws.append(["File", "Language", "Blank", "Comment", "Code", "Total"])
+        for cell in ws[file_header_row]:
+            cell.font = bold
+        for stats in sorted(project.by_file, key=lambda s: s.path.lower()):
+            ws.append([stats.path, stats.language, stats.blank, stats.comment, stats.code, stats.total])
+
+    for col in ws.columns:
+        max_len = max(len(str(cell.value or "")) for cell in col)
+        ws.column_dimensions[col[0].column_letter].width = min(max_len + 2, 50)
+
+    wb.save(path)
+    print(f"Excel written to {path.resolve()}")
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(list(argv) if argv is not None else None)
@@ -286,13 +366,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         custom_extensions=custom_extensions,
     )
 
+    if args.csv:
+        write_csv(project, args.csv, by_file=args.by_file)
+    if args.excel:
+        write_excel(project, args.excel, by_file=args.by_file)
     if args.json:
         print(render_json(project, by_file=args.by_file))
     elif args.course or args.languages:
         if allowed_languages is None:
             allowed_languages = set(project.by_language)
         print(render_course_text(project, allowed_languages))
-    else:
+    elif not args.csv and not args.excel:
         print(render_text(project, by_file=args.by_file))
 
     return 0
