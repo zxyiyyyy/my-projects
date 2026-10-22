@@ -281,21 +281,60 @@ def render_json(project, *, by_file: bool = False) -> str:
     return json.dumps(payload, indent=2, ensure_ascii=False)
 
 
+def _file_code_stats(project, language_name: str) -> list[int]:
+    """Return list of code line counts per file for a given language."""
+    return [f.code for f in project.by_file if f.language == language_name]
+
+
+def _stats_summary(values: list[int]) -> tuple[int, int, float, float]:
+    """Return (max, min, mean, median) for a list of integers."""
+    if not values:
+        return 0, 0, 0.0, 0.0
+    sorted_v = sorted(values)
+    n = len(sorted_v)
+    vmax = sorted_v[-1]
+    vmin = sorted_v[0]
+    vmean = sum(sorted_v) / n
+    if n % 2 == 1:
+        vmedian = float(sorted_v[n // 2])
+    else:
+        vmedian = (sorted_v[n // 2 - 1] + sorted_v[n // 2]) / 2.0
+    return vmax, vmin, round(vmean, 1), round(vmedian, 1)
+
+
+_CSV_HEADERS = ["语言", "源文件数", "代码行数", "空行数", "注释行数", "函数个数", "最大值", "最小值", "均值", "中位数"]
+
+
+def _build_rows(project) -> list[list]:
+    """Build output rows matching the required table format."""
+    rows = []
+    for name, stats in sorted(project.by_language.items(), key=lambda item: item[0].lower()):
+        file_codes = _file_code_stats(project, name)
+        vmax, vmin, vmean, vmedian = _stats_summary(file_codes)
+        rows.append([
+            name,
+            stats.files,
+            stats.code,
+            stats.blank,
+            stats.comment,
+            stats.functions,
+            vmax,
+            vmin,
+            vmean,
+            vmedian,
+        ])
+    return rows
+
+
 def write_csv(project, filepath: str, *, by_file: bool = False) -> None:
     """Write language statistics to a CSV file."""
     path = Path(filepath)
+    rows = _build_rows(project)
     with open(path, "w", newline="", encoding="utf-8-sig") as f:
         writer = csv.writer(f)
-        writer.writerow(["Language", "Files", "Blank", "Comment", "Code", "Total"])
-        for name, stats in sorted(project.by_language.items(), key=lambda item: item[0].lower()):
-            writer.writerow([name, stats.files, stats.blank, stats.comment, stats.code, stats.total])
-        t = project.total
-        writer.writerow(["SUM", t.files, t.blank, t.comment, t.code, t.total])
-        if by_file and project.by_file:
-            writer.writerow([])
-            writer.writerow(["File", "Language", "Blank", "Comment", "Code", "Total"])
-            for stats in sorted(project.by_file, key=lambda s: s.path.lower()):
-                writer.writerow([stats.path, stats.language, stats.blank, stats.comment, stats.code, stats.total])
+        writer.writerow(_CSV_HEADERS)
+        for row in rows:
+            writer.writerow(row)
     print(f"CSV written to {path.resolve()}")
 
 
@@ -303,7 +342,7 @@ def write_excel(project, filepath: str, *, by_file: bool = False) -> None:
     """Write language statistics to an Excel .xlsx file (requires openpyxl)."""
     try:
         from openpyxl import Workbook
-        from openpyxl.styles import Font
+        from openpyxl.styles import Font, Alignment
     except ImportError:
         print("Error: openpyxl is required for Excel output. Install it with: pip install openpyxl", file=sys.stderr)
         sys.exit(1)
@@ -314,32 +353,18 @@ def write_excel(project, filepath: str, *, by_file: bool = False) -> None:
     ws.title = "Code Stats"
 
     bold = Font(bold=True)
-    headers = ["Language", "Files", "Blank", "Comment", "Code", "Total"]
-    ws.append(headers)
+    ws.append(_CSV_HEADERS)
     for cell in ws[1]:
         cell.font = bold
+        cell.alignment = Alignment(horizontal="center")
 
-    for name, stats in sorted(project.by_language.items(), key=lambda item: item[0].lower()):
-        ws.append([name, stats.files, stats.blank, stats.comment, stats.code, stats.total])
-
-    t = project.total
-    row_num = ws.max_row + 1
-    ws.append(["SUM", t.files, t.blank, t.comment, t.code, t.total])
-    for cell in ws[row_num]:
-        cell.font = bold
-
-    if by_file and project.by_file:
-        ws.append([])
-        file_header_row = ws.max_row + 1
-        ws.append(["File", "Language", "Blank", "Comment", "Code", "Total"])
-        for cell in ws[file_header_row]:
-            cell.font = bold
-        for stats in sorted(project.by_file, key=lambda s: s.path.lower()):
-            ws.append([stats.path, stats.language, stats.blank, stats.comment, stats.code, stats.total])
+    rows = _build_rows(project)
+    for row in rows:
+        ws.append(row)
 
     for col in ws.columns:
         max_len = max(len(str(cell.value or "")) for cell in col)
-        ws.column_dimensions[col[0].column_letter].width = min(max_len + 2, 50)
+        ws.column_dimensions[col[0].column_letter].width = min(max_len + 2, 20)
 
     wb.save(path)
     print(f"Excel written to {path.resolve()}")
