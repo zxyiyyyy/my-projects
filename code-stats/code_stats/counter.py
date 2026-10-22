@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 from .languages import CommentRules, Language, detect_language
@@ -13,6 +14,7 @@ class FileStats:
     blank: int = 0
     comment: int = 0
     code: int = 0
+    functions: int = 0
 
     @property
     def total(self) -> int:
@@ -26,6 +28,7 @@ class LanguageStats:
     blank: int = 0
     comment: int = 0
     code: int = 0
+    functions: int = 0
 
     @property
     def total(self) -> int:
@@ -36,6 +39,7 @@ class LanguageStats:
         self.blank += stats.blank
         self.comment += stats.comment
         self.code += stats.code
+        self.functions += stats.functions
 
 
 @dataclass
@@ -53,11 +57,57 @@ class ProjectStats:
             total.blank += stats.blank
             total.comment += stats.comment
             total.code += stats.code
+            total.functions += stats.functions
         return total
 
 
+# Function definition patterns per language group
+_FUNC_PATTERNS = {
+    "c_cpp": re.compile(
+        r"^\s*(?:static\s+|extern\s+|inline\s+|virtual\s+|override\s+)*"
+        r"(?:void|int|char|float|double|long|short|bool|unsigned\s+\w+|size_t|auto|\w+::\w+|\w+)\s+"
+        r"\w+\s*\([^;]*$"
+    ),
+    "java": re.compile(
+        r"^\s*(?:public|private|protected|static|final|abstract|synchronized|native)*\s*"
+        r"(?:void|int|char|float|double|long|short|boolean|String|var|\w+)\s+"
+        r"\w+\s*\([^;]*$"
+    ),
+    "python": re.compile(r"^\s*def\s+\w+\s*\("),
+    "csharp": re.compile(
+        r"^\s*(?:public|private|protected|internal|static|readonly|virtual|override|async)*\s*"
+        r"(?:void|int|char|float|double|long|short|bool|string|var|\w+)\s+"
+        r"\w+\s*\([^;]*$"
+    ),
+}
+
+
+def _count_functions(content: str, language_name: str) -> int:
+    """Roughly count function definitions in a file."""
+    name = language_name.lower()
+    if "python" in name:
+        pattern = _FUNC_PATTERNS["python"]
+    elif "c++" in name or "c" == name:
+        pattern = _FUNC_PATTERNS["c_cpp"]
+    elif "java" in name:
+        pattern = _FUNC_PATTERNS["java"]
+    elif "c#" in name or "csharp" in name:
+        pattern = _FUNC_PATTERNS["csharp"]
+    else:
+        return 0
+
+    count = 0
+    for line in content.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith(("//", "#", "*", "/*")):
+            continue
+        if pattern.match(line):
+            count += 1
+    return count
+
+
 def _strip_bom(text: str) -> str:
-    return text.lstrip("\ufeff")
+    return text.lstrip("﻿")
 
 
 def _is_blank(line: str) -> bool:
@@ -85,38 +135,31 @@ def count_lines(content: str, rules: CommentRules | None) -> tuple[int, int, int
 
     for raw_line in content.splitlines():
         line = _strip_bom(raw_line)
-
         if _is_blank(line):
             blank += 1
             continue
-
         if in_block:
             comment += 1
             if block_end and block_end in line:
                 in_block = False
             continue
-
         stripped = line.lstrip()
-
         if rules.line_comments and _starts_with_any(stripped, rules.line_comments):
             comment += 1
             continue
-
         if rules.block_start and rules.block_start in stripped:
             comment += 1
             start_idx = stripped.find(rules.block_start)
-            after_start = stripped[start_idx + len(rules.block_start) :]
+            after_start = stripped[start_idx + len(rules.block_start):]
             if rules.block_end and rules.block_end in after_start:
                 end_idx = after_start.find(rules.block_end)
-                remainder = after_start[end_idx + len(rules.block_end) :].strip()
+                remainder = after_start[end_idx + len(rules.block_end):].strip()
                 if remainder:
                     code += 1
             else:
                 in_block = True
             continue
-
         code += 1
-
     return blank, comment, code
 
 
@@ -125,7 +168,6 @@ def count_file(path: str, language: Language | None = None) -> FileStats | None:
 
     if language is None:
         language = detect_language(path)
-
     if language is None:
         return None
 
@@ -139,7 +181,16 @@ def count_file(path: str, language: Language | None = None) -> FileStats | None:
         content = _extract_notebook_source(content)
 
     blank, comment, code = count_lines(content, language.rules)
-    return FileStats(path=path, language=language.name, blank=blank, comment=comment, code=code)
+    funcs = _count_functions(content, language.name)
+
+    return FileStats(
+        path=path,
+        language=language.name,
+        blank=blank,
+        comment=comment,
+        code=code,
+        functions=funcs,
+    )
 
 
 def _extract_notebook_source(content: str) -> str:
