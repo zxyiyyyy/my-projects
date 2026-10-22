@@ -11,13 +11,15 @@ from . import __version__
 from .counter import LanguageStats
 from .scanner import scan_paths
 
-COURSE_LANGUAGES = ("C", "C++", "Java", "Python")
+COURSE_LANGUAGES = ("C", "C++", "C#", "Java", "Python")
 
 LANGUAGE_ALIASES = {
     "c": "C",
     "c++": "C++",
     "cpp": "C++",
     "c plus plus": "C++",
+    "c#": "C#",
+    "csharp": "C#",
     "java": "Java",
     "python": "Python",
     "py": "Python",
@@ -306,23 +308,27 @@ _CSV_HEADERS = ["语言", "源文件数", "代码行数", "空行数", "注释�
 
 
 def _build_rows(project) -> list[list]:
-    """Build output rows matching the required table format."""
+    """Build output rows for the five required languages, zero-filled if missing."""
     rows = []
-    for name, stats in sorted(project.by_language.items(), key=lambda item: item[0].lower()):
+    for name in COURSE_LANGUAGES:
+        stats = project.by_language.get(name)
         file_codes = _file_code_stats(project, name)
         vmax, vmin, vmean, vmedian = _stats_summary(file_codes)
-        rows.append([
-            name,
-            stats.files,
-            stats.code,
-            stats.blank,
-            stats.comment,
-            stats.functions,
-            vmax,
-            vmin,
-            vmean,
-            vmedian,
-        ])
+        if stats is None:
+            rows.append([name, 0, 0, 0, 0, 0, 0, 0, 0.0, 0.0])
+        else:
+            rows.append([
+                name,
+                stats.files,
+                stats.code,
+                stats.blank,
+                stats.comment,
+                stats.functions,
+                vmax,
+                vmin,
+                vmean,
+                vmedian,
+            ])
     return rows
 
 
