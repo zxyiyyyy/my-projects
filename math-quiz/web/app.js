@@ -61,6 +61,7 @@ function formatProblem(problem) {
 const setupView = document.getElementById("setup-view");
 const quizView = document.getElementById("quiz-view");
 const resultView = document.getElementById("result-view");
+const subtitle = document.getElementById("subtitle");
 const setupError = document.getElementById("setup-error");
 const questionCountInput = document.getElementById("question-count");
 const startBtn = document.getElementById("start-btn");
@@ -82,6 +83,8 @@ function show(view) {
   setupView.hidden = view !== "setup";
   quizView.hidden = view !== "quiz";
   resultView.hidden = view !== "result";
+  // 结果页不显示顶部说明，页面更干净
+  subtitle.hidden = view === "result";
 }
 
 function getSelectedOperators() {
