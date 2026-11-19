@@ -1,5 +1,11 @@
 const OPS_DISPLAY = { "+": "+", "-": "−", "*": "×", "/": "÷" };
 const PRECEDENCE = { "+": 1, "-": 1, "*": 2, "/": 2 };
+// 答案范围约束：最终结果与每一步中间结果都限定在 0~100 的整数
+const ANSWER_MIN = 0;
+const ANSWER_MAX = 100;
+function inRange(value) {
+  return value >= ANSWER_MIN && value <= ANSWER_MAX && Number.isInteger(value);
+}
 
 function apply(left, op, right) {
   let result;
@@ -8,9 +14,9 @@ function apply(left, op, right) {
   else if (op === "*") result = left * right;
   else if (op === "/") {
     if (right === 0 || left % right !== 0) return null;
-    result = Math.floor(left / right);
+    result = left / right;
   } else return null;
-  if (result <= 0) return null;
+  if (!inRange(result)) return null;
   return result;
 }
 
