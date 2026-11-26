@@ -13,7 +13,7 @@ function apply(left, op, right) {
   else if (op === "-") result = left - right;
   else if (op === "*") result = left * right;
   else if (op === "/") {
-    if (right === 0 || left % right !== 0) return null;
+    if (right < 2 || left === right || left % right !== 0) return null;
     result = Math.floor(left / right);
   } else return null;
   if (!inRange(result)) return null;
