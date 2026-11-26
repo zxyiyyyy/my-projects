@@ -79,6 +79,15 @@ body {
   cursor: pointer;
 }
 
+.bracket-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
 .count-row {
   display: flex;
   flex-wrap: wrap;

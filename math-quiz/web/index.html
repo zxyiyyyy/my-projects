@@ -21,6 +21,10 @@
         <label><input type="checkbox" name="op" value="*" checked /> 乘法 ×</label>
         <label><input type="checkbox" name="op" value="/" /> 除法 ÷</label>
       </fieldset>
+      <label class="bracket-row">
+        <input type="checkbox" id="bracket-toggle" />
+        包含小括号（括号内必须是正整数，可含加减乘除）
+      </label>
       <div class="count-row">
         <label for="question-count">题目数量</label>
         <input id="question-count" type="number" min="1" max="100" value="10" />
@@ -73,6 +77,6 @@
       <button id="retry-btn" type="button" class="btn primary">再练一次</button>
     </section>
   </div>
-  <script src="app.js?v=20261119d"></script>
+  <script src="app.js?v=20261126a"></script>
 </body>
 </html>

@@ -20,7 +20,24 @@ function apply(left, op, right) {
   return result;
 }
 
-function evaluate(a, op1, b, op2, c) {
+// 括号内必须是正整数：不能负数、小数、分数
+function applyInner(left, op, right) {
+  const result = apply(left, op, right);
+  if (result === null || result < 1) return null;
+  return result;
+}
+
+function evaluate(a, op1, b, op2, c, bracket = "none") {
+  if (bracket === "left") {
+    const inner = applyInner(a, op1, b);
+    if (inner === null) return null;
+    return apply(inner, op2, c);
+  }
+  if (bracket === "right") {
+    const inner = applyInner(b, op2, c);
+    if (inner === null) return null;
+    return apply(a, op1, inner);
+  }
   if (PRECEDENCE[op1] >= PRECEDENCE[op2]) {
     const mid = apply(a, op1, b);
     if (mid === null) return null;
@@ -35,7 +52,7 @@ function randomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function generateProblem(operators, minN = 1, maxN = 12) {
+function generateProblem(operators, minN = 1, maxN = 12, withBracket = false) {
   if (!operators.length) throw new Error("至少选择一种运算");
   for (let attempt = 0; attempt < 5000; attempt++) {
     const a = randomInt(minN, maxN);
@@ -43,19 +60,24 @@ function generateProblem(operators, minN = 1, maxN = 12) {
     const c = randomInt(minN, maxN);
     const op1 = operators[Math.floor(Math.random() * operators.length)];
     const op2 = operators[Math.floor(Math.random() * operators.length)];
-    const answer = evaluate(a, op1, b, op2, c);
-    if (answer !== null) return { a, op1, b, op2, c, answer };
+    const bracket = withBracket ? (Math.random() < 0.5 ? "left" : "right") : "none";
+    const answer = evaluate(a, op1, b, op2, c, bracket);
+    if (answer !== null) return { a, op1, b, op2, c, bracket, answer };
   }
-  throw new Error("无法生成符合规则的题目，请换一组运算再试");
+  throw new Error("无法生成符合规则的题目，请换一组运算或调整小括号选项再试");
 }
 
-function generateQuiz(operators, count) {
-  return Array.from({ length: count }, () => generateProblem(operators));
+function generateQuiz(operators, count, withBracket = false) {
+  return Array.from({ length: count }, () => generateProblem(operators, 1, 12, withBracket));
 }
 
 function formatProblem(problem) {
-  const { a, op1, b, op2, c } = problem;
-  return `${a} ${OPS_DISPLAY[op1]} ${b} ${OPS_DISPLAY[op2]} ${c}`;
+  const { a, op1, b, op2, c, bracket } = problem;
+  const left = OPS_DISPLAY[op1];
+  const right = OPS_DISPLAY[op2];
+  if (bracket === "left") return `(${a} ${left} ${b}) ${right} ${c}`;
+  if (bracket === "right") return `${a} ${left} (${b} ${right} ${c})`;
+  return `${a} ${left} ${b} ${right} ${c}`;
 }
 
 const setupView = document.getElementById("setup-view");
@@ -75,6 +97,7 @@ const statTotal = document.getElementById("stat-total");
 const statRate = document.getElementById("stat-rate");
 const reviewList = document.getElementById("review-list");
 const retryBtn = document.getElementById("retry-btn");
+const bracketToggle = document.getElementById("bracket-toggle");
 
 let session = { problems: [], index: 0, results: [] };
 
@@ -107,7 +130,8 @@ function startQuiz() {
   questionCountInput.value = String(count);
 
   try {
-    session = { problems: generateQuiz(operators, count), index: 0, results: [] };
+    const withBracket = bracketToggle ? bracketToggle.checked : false;
+    session = { problems: generateQuiz(operators, count, withBracket), index: 0, results: [] };
   } catch (err) {
     setupError.textContent = err instanceof Error ? err.message : "出题失败";
     setupError.hidden = false;
