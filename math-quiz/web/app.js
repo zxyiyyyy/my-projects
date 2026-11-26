@@ -52,32 +52,119 @@ function randomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function generateProblem(operators, minN = 1, maxN = 12, withBracket = false) {
+// 题库参数：数字上限按运算种类分档，两数题与三数题混合出现
+const CAPS_WITH_MULDIV = [9, 12, 20];
+const CAPS_ADD_SUB_ONLY = [9, 12, 20, 50, 80];
+const CAPS_DIV_ONLY = [12, 20, 50, 100];
+const TWO_TERM_RATE = 0.25;
+
+function pickMaxNumber(ops) {
+  const caps = ops.every((op) => op === "/")
+    ? CAPS_DIV_ONLY
+    : ops.some((op) => op === "*" || op === "/")
+    ? CAPS_WITH_MULDIV
+    : CAPS_ADD_SUB_ONLY;
+  return caps[Math.floor(Math.random() * caps.length)];
+}
+
+// 先乘除后加减：把序列里的 * / 先合并，再合并 + -
+function evaluatePlain(nums, ops) {
+  const values = [nums[0]];
+  const addOps = [];
+  for (let i = 0; i < ops.length; i++) {
+    if (ops[i] === "*" || ops[i] === "/") {
+      const merged = apply(values.pop(), ops[i], nums[i + 1]);
+      if (merged === null) return null;
+      values.push(merged);
+    } else {
+      values.push(nums[i + 1]);
+      addOps.push(ops[i]);
+    }
+  }
+  let total = values[0];
+  for (let i = 0; i < addOps.length; i++) {
+    const merged = apply(total, addOps[i], values[i + 1]);
+    if (merged === null) return null;
+    total = merged;
+  }
+  return total;
+}
+
+// bracket: "none" | "left"（前两个数先算）| "right"（最后两个数先算）
+function evaluate(nums, ops, bracket = "none") {
+  let workNums = nums.slice();
+  let workOps = ops.slice();
+  if (bracket === "left") {
+    const inner = applyInner(workNums[0], workOps[0], workNums[1]);
+    if (inner === null) return null;
+    workNums = [inner, ...workNums.slice(2)];
+    workOps = workOps.slice(1);
+  } else if (bracket === "right") {
+    const last = workNums.length - 2;
+    const inner = applyInner(workNums[last], workOps[last], workNums[last + 1]);
+    if (inner === null) return null;
+    workNums = [...workNums.slice(0, last), inner];
+    workOps = workOps.slice(0, last);
+  }
+  return evaluatePlain(workNums, workOps);
+}
+
+function generateProblem(operators, withBracket = false) {
   if (!operators.length) throw new Error("至少选择一种运算");
   for (let attempt = 0; attempt < 5000; attempt++) {
-    const a = randomInt(minN, maxN);
-    const b = randomInt(minN, maxN);
-    const c = randomInt(minN, maxN);
-    const op1 = operators[Math.floor(Math.random() * operators.length)];
-    const op2 = operators[Math.floor(Math.random() * operators.length)];
-    const bracket = withBracket ? (Math.random() < 0.5 ? "left" : "right") : "none";
-    const answer = evaluate(a, op1, b, op2, c, bracket);
-    if (answer !== null) return { a, op1, b, op2, c, bracket, answer };
+    const termCount = Math.random() < TWO_TERM_RATE ? 2 : 3;
+    const ops = Array.from(
+      { length: termCount - 1 },
+      () => operators[Math.floor(Math.random() * operators.length)]
+    );
+    const maxNum = pickMaxNumber(ops);
+    const nums = Array.from({ length: termCount }, () => randomInt(1, maxNum));
+    const bracket =
+      withBracket && termCount > 2 ? (Math.random() < 0.5 ? "left" : "right") : "none";
+    const answer = evaluate(nums, ops, bracket);
+    if (answer !== null) return { nums, ops, bracket, answer };
   }
   throw new Error("无法生成符合规则的题目，请换一组运算或调整小括号选项再试");
 }
 
-function generateQuiz(operators, count, withBracket = false) {
-  return Array.from({ length: count }, () => generateProblem(operators, 1, 12, withBracket));
+function formatExpression(nums, ops) {
+  let text = String(nums[0]);
+  for (let i = 0; i < ops.length; i++) text += ` ${OPS_DISPLAY[ops[i]]} ${nums[i + 1]}`;
+  return text;
 }
 
 function formatProblem(problem) {
-  const { a, op1, b, op2, c, bracket } = problem;
-  const left = OPS_DISPLAY[op1];
-  const right = OPS_DISPLAY[op2];
-  if (bracket === "left") return `(${a} ${left} ${b}) ${right} ${c}`;
-  if (bracket === "right") return `${a} ${left} (${b} ${right} ${c})`;
-  return `${a} ${left} ${b} ${right} ${c}`;
+  const { nums, ops, bracket } = problem;
+  if (bracket === "left") {
+    const inner = `${nums[0]} ${OPS_DISPLAY[ops[0]]} ${nums[1]}`;
+    let rest = "";
+    for (let i = 1; i < ops.length; i++) rest += ` ${OPS_DISPLAY[ops[i]]} ${nums[i + 1]}`;
+    return `(${inner})${rest}`;
+  }
+  if (bracket === "right") {
+    const open = nums.length - 2;
+    const head = formatExpression(nums.slice(0, open), ops.slice(0, open - 1));
+    const inner = `${nums[open]} ${OPS_DISPLAY[ops[open]]} ${nums[open + 1]}`;
+    return `${head} ${OPS_DISPLAY[ops[open - 1]]} (${inner})`;
+  }
+  return formatExpression(nums, ops);
+}
+
+// 同一份练习里尽量不出现重复题目
+function generateQuiz(operators, count, withBracket = false) {
+  const problems = [];
+  const seen = new Set();
+  let tries = 0;
+  while (problems.length < count && tries < count * 20) {
+    tries += 1;
+    const problem = generateProblem(operators, withBracket);
+    const key = formatProblem(problem);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    problems.push(problem);
+  }
+  while (problems.length < count) problems.push(generateProblem(operators, withBracket));
+  return problems;
 }
 
 const setupView = document.getElementById("setup-view");

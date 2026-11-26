@@ -65,7 +65,7 @@ def run_quiz(operators: list[str], count: int) -> int:
     correct = 0
 
     print()
-    print("规则: 三个数、两个符号; 先乘除后加减; 每一步和最终结果都是正整数。")
+    print("规则: 两到三个数、一到两个符号; 先乘除后加减; 答案和每一步都是 0~100 的整数。")
     print()
 
     for index, problem in enumerate(problems, start=1):
@@ -92,7 +92,7 @@ def run_quiz(operators: list[str], count: int) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="小学生四则运算练习: 三个数字、两个符号, 结果为正整数。")
+        description="小学生四则运算练习: 两到三个数、一到两个符号, 答案在 0~100。")
     parser.add_argument("--ops", default="", help="直接指定运算, 例如 +-* 或 +-*/")
     parser.add_argument("--count", type=int, default=0, help="题目数量 (1-100)")
     return parser
@@ -103,7 +103,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     print("=== 小学生四则运算练习 (Python版) ===")
-    print("三数两符号, 先乘除后加减, 每一步都是正整数")
+    print("两到三个数, 先乘除后加减, 答案都是 0~100 的整数")
     print()
 
     if args.ops:
